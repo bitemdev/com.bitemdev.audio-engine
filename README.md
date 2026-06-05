@@ -38,9 +38,47 @@ The package is built around these rules:
 
 The package appears under `Packages/BitemDev Audio Engine`.
 
+## Fastest No-Code Test
+
+Use this path when someone wants to install the package in an empty project and verify the whole tool without writing code.
+
+1. Install the package from the Git URL.
+2. Open any scene, including a brand-new empty scene.
+3. Run `Tools > BitemDev > Audio Engine > Create No-Code Demo In Current Scene`.
+4. Press Play.
+5. Use the on-screen `BitemDev Audio Engine Demo` panel.
+
+The demo creates:
+
+- `AudioEngineConfig.asset`
+- `AudioEventLibrary.asset`
+- Five demo WAV clips generated inside `Assets/AudioEngine/Demo/Clips`
+- Five demo audio events inside `Assets/AudioEngine/Demo/Events`
+- One `AudioManager`
+- One `AudioReferenceRig`
+- One camera listener setup if the scene did not already have one
+- One logic reference object
+- One green cube for 3D one-shot testing
+- One moving cyan sphere for followed loop testing
+- One on-screen no-code test panel
+
+The on-screen buttons test:
+
+| Button | What It Tests |
+| --- | --- |
+| `Play 2D UI Event` | Direct event-asset playback, 2D playback, pooling. |
+| `Play Event By Id` | Event library lookup using a string id. |
+| `Play 3D Event At Cube` | Positional playback, camera listener, 3D attenuation. |
+| `Start Follow Loop` / `Stop Follow Loop` | Looping playback, follow target behavior, handle-based stopping. |
+| `Music A` / `Music B` | Music playback mode and fade-out replacement. |
+| `Stop All` | Global stop and fade behavior. |
+| `Move follow emitter` | Whether the followed sound updates as its transform moves. |
+
+After using the demo, inspect the generated event assets. They are normal `AudioEventDefinition` assets and can be edited, duplicated, renamed, or deleted.
+
 ## Empty Project Test
 
-Use these steps when testing the tool in a fresh Unity project.
+Use these steps when testing the tool manually in a fresh Unity project.
 
 ### 1. Create The Default Assets
 
