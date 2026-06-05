@@ -33,7 +33,7 @@ The package is built around these rules:
 2. Open `Window > Package Manager`.
 3. Press `+`.
 4. Choose `Add package from git URL...`.
-5. Paste this package repository URL.
+5. Paste: https://github.com/bitemdev/com.bitemdev.audio-engine.git
 6. Wait for Unity to import and compile.
 
 The package appears under `Packages/BitemDev Audio Engine`.
