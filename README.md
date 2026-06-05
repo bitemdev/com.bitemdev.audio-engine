@@ -8,26 +8,24 @@ This package is meant to sit between the sound designer and the programmer:
 - The programmer calls the `AudioManager` with an event id.
 - Gameplay objects notify the audio system, but they do not own `AudioSource` playback logic.
 
-The package supports both simple and bigger projects:
+The package supports both compact and production-scale projects:
 
-- Small/gamejam projects: the camera can be both the audio listener and the gameplay audio reference.
-- Medium/big projects: the camera can be the listener while a player transform drives gameplay audio logic such as proximity, ambience, combat intensity, or music state.
+- Compact projects: the camera can be both the audio listener and the gameplay audio reference.
+- Production projects: the camera can be the listener while a dedicated gameplay transform drives audio logic such as proximity, ambience, combat intensity, or music state.
 
-## Requirements Covered
+## Architecture Goals
 
-The attached PDF asked for these core rules. The package implements them as follows:
+The package is built around these rules:
 
-| Requirement | Package Support |
+| Goal | Package Support |
 | --- | --- |
-| Keep the `AudioListener` on the camera | `AudioReferenceRig` assigns/registers the listener camera and can ensure it has an `AudioListener`. |
-| Spatial hearing should be camera-relative | Unity spatialization still comes from the camera `AudioListener`. |
-| Gameplay audio logic should use the player/reference transform | `AudioReferenceRig` has a separate `Logic Reference` field. `AudioDistanceParameterDriver` uses it. |
-| Camera = how sound is heard | `Listener Camera` in `AudioReferenceRig`. |
-| Player = how audio systems react | `Logic Reference` in `AudioReferenceRig`. |
-| Player should not play sounds directly | Runtime workflow uses `AudioManager.Instance.Play(...)`, `PlayAt(...)`, or `PlayFollow(...)`. |
-| Centralized Audio Manager | `AudioManager` owns pooled `AudioSource` voices, event lookup, playback, mixer parameters, snapshots, and stopping. |
-| Gameplay objects should notify the manager | Programmers can call the manager. Designers can use `AudioEmitter` for scene/animation/UnityEvent hooks. |
-| Smaller gamejam setup where camera drives everything | Set `Reference Mode` to `CameraOnly`. Then the camera is both the listener and logic reference. |
+| Centralize playback | `AudioManager` owns pooled `AudioSource` voices, event lookup, playback, mixer parameters, snapshots, and stopping. |
+| Keep gameplay code clean | Gameplay code calls the manager with event ids instead of managing `AudioSource` components directly. |
+| Give designers control | `AudioEventDefinition` assets hold clips, routing, randomization, spatial settings, cooldowns, voice limits, and fades. |
+| Support camera-based listening | `AudioReferenceRig` assigns/registers the listener camera and can ensure it has an `AudioListener`. |
+| Support separate gameplay audio logic | `AudioReferenceRig` has a separate `Logic Reference` field used by systems such as `AudioDistanceParameterDriver`. |
+| Support compact setups | Set `Reference Mode` to `CameraOnly` when the camera should drive both listening and audio logic. |
+| Support larger setups | Set `Reference Mode` to `SeparateListenerAndLogicReference` when listening and gameplay audio logic should use different transforms. |
 
 ## Install From Git URL
 
@@ -95,13 +93,13 @@ Reference modes:
 
 | Mode | Use When | What Happens |
 | --- | --- | --- |
-| `CameraOnly` | Small projects, gamejams, simple prototypes | Camera position is used for listening and gameplay audio logic. |
-| `SeparateListenerAndLogicReference` | Most 2.5D/topdown/third-person games | Camera hears the sound, player/reference drives proximity and parameters. |
+| `CameraOnly` | Compact projects, prototypes, simple scenes | Camera position is used for listening and gameplay audio logic. |
+| `SeparateListenerAndLogicReference` | Projects where camera movement should not drive gameplay audio logic | Camera hears the sound, logic reference drives proximity and parameters. |
 | `Explicit` | Advanced/manual setups | Uses exactly the transforms assigned by code or rig. |
 
-For the PDF's 2.5D topdown setup, use `SeparateListenerAndLogicReference`.
+Use `SeparateListenerAndLogicReference` when camera framing, zoom, or cinematic movement should not affect gameplay audio behavior.
 
-For the sound designer's gamejam note, use `CameraOnly`.
+Use `CameraOnly` when the camera is the only meaningful listener/reference point in the scene.
 
 ### 4. Create A Test Audio Event
 
@@ -543,7 +541,7 @@ Purpose:
 
 Writes a distance-based value into an exposed Audio Mixer parameter.
 
-This is the component that supports gameplay-driven audio logic from the PDF. It measures distance from the manager's logic reference, not necessarily the camera.
+This component supports gameplay-driven audio logic. It measures distance from the manager's logic reference, not necessarily the camera.
 
 Fields:
 
@@ -562,7 +560,7 @@ Example:
 - Enemy near player = combat intensity close to `1`.
 - Enemy far from player = combat intensity close to `0`.
 - In `CameraOnly` mode, distance is measured from the camera.
-- In `SeparateListenerAndLogicReference` mode, distance is measured from the player/reference.
+- In `SeparateListenerAndLogicReference` mode, distance is measured from the assigned logic reference.
 
 ## Designer Assets
 
@@ -769,9 +767,9 @@ Increase:
 
 Also check the assigned Audio Mixer group volume.
 
-### The camera moving changes gameplay audio behavior
+### Camera movement changes gameplay audio behavior
 
-For medium/big projects, set:
+For projects where camera movement should not drive gameplay audio logic, set:
 
 ```text
 AudioReferenceRig.Reference Mode = SeparateListenerAndLogicReference
@@ -779,7 +777,7 @@ AudioReferenceRig.Listener Camera = Main Camera
 AudioReferenceRig.Logic Reference = Player
 ```
 
-For gamejam/simple projects, set:
+For compact projects where camera position should drive everything, set:
 
 ```text
 AudioReferenceRig.Reference Mode = CameraOnly
@@ -828,4 +826,3 @@ Not included yet:
 - Custom waveform preview.
 - Import preset automation for audio files.
 - Save-file persistence for user volume settings.
-
