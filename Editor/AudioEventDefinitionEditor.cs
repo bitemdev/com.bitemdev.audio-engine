@@ -76,6 +76,27 @@ namespace BitemDev.AudioEngine.Editor
                     EditorGUIUtility.systemCopyBuffer = $"AudioManager.Instance.Play(\"{definition.EventId}\");";
                 }
             }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(!Application.isPlaying || AudioManager.Instance == null))
+                {
+                    if (GUILayout.Button("Play Through Audio Manager"))
+                    {
+                        AudioManager.Instance.Play(definition);
+                    }
+
+                    if (GUILayout.Button("Stop All"))
+                    {
+                        AudioManager.Instance.StopAll();
+                    }
+                }
+            }
+
+            if (!Application.isPlaying)
+            {
+                EditorGUILayout.HelpBox("Enter Play Mode with an Audio Manager in the scene to audition this event through the real runtime path.", MessageType.Info);
+            }
         }
     }
 }
