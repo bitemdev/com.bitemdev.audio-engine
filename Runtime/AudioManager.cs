@@ -11,6 +11,7 @@ namespace BitemDev.AudioEngine
         [SerializeField] private AudioEngineConfig config;
         [SerializeField] private AudioEventLibrary eventLibrary;
         [SerializeField] private AudioMixer masterMixer;
+        [SerializeField] private List<AudioMixerBusBinding> busBindings = new List<AudioMixerBusBinding>();
         [SerializeField] private AudioEngineReferenceMode referenceMode = AudioEngineReferenceMode.SeparateListenerAndLogicReference;
         [SerializeField] private Transform listenerTransform;
         [SerializeField] private Transform logicReferenceTransform;
@@ -36,6 +37,7 @@ namespace BitemDev.AudioEngine
         {
             if (Instance != null && Instance != this)
             {
+                Debug.LogWarning("Only one AudioManager can be active. Destroying duplicate AudioManager.", this);
                 Destroy(gameObject);
                 return;
             }
@@ -49,6 +51,14 @@ namespace BitemDev.AudioEngine
             }
 
             BuildPool(initialPoolSize);
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this)
+            {
+                Instance = null;
+            }
         }
 
         private void Update()
@@ -77,6 +87,13 @@ namespace BitemDev.AudioEngine
 
             eventLibrary = config.EventLibrary;
             masterMixer = config.MasterMixer;
+            busBindings.Clear();
+            IReadOnlyList<AudioMixerBusBinding> configuredBusBindings = config.BusBindings;
+            for (int i = 0; i < configuredBusBindings.Count; i++)
+            {
+                busBindings.Add(configuredBusBindings[i]);
+            }
+
             referenceMode = config.ReferenceMode;
             initialPoolSize = config.InitialPoolSize;
             maxPoolSize = config.MaxPoolSize;
@@ -164,7 +181,8 @@ namespace BitemDev.AudioEngine
             }
 
             Vector3 position = ResolvePlaybackPosition(definition, request);
-            voice.Play(definition, clipEntry, position, request.FollowTarget, Mathf.Max(0f, request.VolumeScale), request.PitchScale <= 0f ? 1f : request.PitchScale);
+            AudioMixerGroup outputMixerGroup = ResolveOutputMixerGroup(definition);
+            voice.Play(definition, clipEntry, outputMixerGroup, position, request.FollowTarget, Mathf.Max(0f, request.VolumeScale), request.PitchScale <= 0f ? 1f : request.PitchScale);
             nextAllowedPlayTimes[eventId] = Time.time + definition.CooldownSeconds;
 
             if (definition.PlaybackMode == AudioEventPlaybackMode.Music)
@@ -238,6 +256,25 @@ namespace BitemDev.AudioEngine
             }
 
             return false;
+        }
+
+        public AudioMixerGroup GetConfiguredBusMixerGroup(AudioEventBus bus)
+        {
+            if (bus == AudioEventBus.Auto || bus == AudioEventBus.Custom)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < busBindings.Count; i++)
+            {
+                AudioMixerBusBinding binding = busBindings[i];
+                if (binding != null && binding.Bus == bus && binding.MixerGroup != null)
+                {
+                    return binding.MixerGroup;
+                }
+            }
+
+            return null;
         }
 
         public void ApplyMixerParameters(IReadOnlyList<AudioMixerParameterValue> values)
@@ -434,6 +471,48 @@ namespace BitemDev.AudioEngine
 
             Transform fallbackListener = ResolveListenerTransform();
             return fallbackListener != null ? fallbackListener.position : transform.position;
+        }
+
+        private AudioMixerGroup ResolveOutputMixerGroup(AudioEventDefinition definition)
+        {
+            if (definition == null)
+            {
+                return null;
+            }
+
+            if (definition.OutputMixerGroup != null)
+            {
+                return definition.OutputMixerGroup;
+            }
+
+            return GetConfiguredBusMixerGroup(ResolveBus(definition));
+        }
+
+        private static AudioEventBus ResolveBus(AudioEventDefinition definition)
+        {
+            if (definition.Bus != AudioEventBus.Auto)
+            {
+                return definition.Bus;
+            }
+
+            if (definition.PlaybackMode == AudioEventPlaybackMode.Music)
+            {
+                return AudioEventBus.Music;
+            }
+
+            switch (definition.Category)
+            {
+                case AudioEventCategory.Music:
+                    return AudioEventBus.Music;
+                case AudioEventCategory.Ambience:
+                    return AudioEventBus.Ambience;
+                case AudioEventCategory.Dialogue:
+                    return AudioEventBus.Dialogue;
+                case AudioEventCategory.Ui:
+                    return AudioEventBus.Ui;
+                default:
+                    return AudioEventBus.Sfx;
+            }
         }
 
         private Transform ResolveListenerTransform()

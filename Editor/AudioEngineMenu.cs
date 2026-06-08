@@ -24,10 +24,17 @@ namespace BitemDev.AudioEngine.Editor
             AudioEngineConfig config = LoadOrCreate<AudioEngineConfig>(ConfigPath);
 
             SerializedObject configObject = new SerializedObject(config);
+            bool changed = false;
             SerializedProperty libraryProperty = configObject.FindProperty("eventLibrary");
             if (libraryProperty.objectReferenceValue == null)
             {
                 libraryProperty.objectReferenceValue = library;
+                changed = true;
+            }
+
+            EnsureDefaultBusBindings(configObject, ref changed);
+            if (changed)
+            {
                 configObject.ApplyModifiedProperties();
                 EditorUtility.SetDirty(config);
             }
@@ -41,6 +48,17 @@ namespace BitemDev.AudioEngine.Editor
         {
             CreateDefaultAssets();
 
+            AudioManager existingManager = FindExistingAudioManager();
+            if (existingManager != null)
+            {
+                Selection.activeGameObject = existingManager.gameObject;
+                EditorUtility.DisplayDialog(
+                    "Audio Manager Already Exists",
+                    "Only one Audio Manager should exist in a project. The existing Audio Manager has been selected.",
+                    "OK");
+                return;
+            }
+
             GameObject managerObject = new GameObject("Audio Manager");
             GameObjectUtility.SetParentAndAlign(managerObject, menuCommand.context as GameObject);
             Undo.RegisterCreatedObjectUndo(managerObject, "Create Audio Manager");
@@ -52,6 +70,44 @@ namespace BitemDev.AudioEngine.Editor
             managerSerialized.ApplyModifiedProperties();
 
             Selection.activeGameObject = managerObject;
+        }
+
+        internal static AudioManager FindExistingAudioManager()
+        {
+#if UNITY_2023_1_OR_NEWER || UNITY_6000_0_OR_NEWER
+            return Object.FindFirstObjectByType<AudioManager>(FindObjectsInactive.Include);
+#else
+            return Object.FindObjectOfType<AudioManager>(true);
+#endif
+        }
+
+        private static void EnsureDefaultBusBindings(SerializedObject configObject, ref bool changed)
+        {
+            SerializedProperty busBindings = configObject.FindProperty("busBindings");
+            if (busBindings == null || busBindings.arraySize > 0)
+            {
+                return;
+            }
+
+            AudioEventBus[] defaultBuses =
+            {
+                AudioEventBus.Sfx,
+                AudioEventBus.Music,
+                AudioEventBus.Ambience,
+                AudioEventBus.Dialogue,
+                AudioEventBus.Ui,
+                AudioEventBus.Master
+            };
+
+            busBindings.arraySize = defaultBuses.Length;
+            for (int i = 0; i < defaultBuses.Length; i++)
+            {
+                SerializedProperty element = busBindings.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("bus").enumValueIndex = (int)defaultBuses[i];
+                element.FindPropertyRelative("mixerGroup").objectReferenceValue = null;
+            }
+
+            changed = true;
         }
 
         [MenuItem("GameObject/BitemDev/Audio Engine/Audio Reference Rig", false, 11)]

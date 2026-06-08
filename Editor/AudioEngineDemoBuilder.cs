@@ -267,14 +267,14 @@ namespace BitemDev.AudioEngine.Editor
             GameObject logicReference = GetOrCreateChild(root.transform, "Logic Reference");
             logicReference.transform.position = Vector3.zero;
 
-            GameObject managerObject = GameObject.Find("Audio Manager");
+            AudioManager manager = AudioEngineMenu.FindExistingAudioManager();
+            GameObject managerObject = manager != null ? manager.gameObject : null;
             if (managerObject == null)
             {
                 managerObject = new GameObject("Audio Manager");
                 Undo.RegisterCreatedObjectUndo(managerObject, "Create Audio Manager");
             }
 
-            AudioManager manager = managerObject.GetComponent<AudioManager>();
             if (manager == null)
             {
                 manager = managerObject.AddComponent<AudioManager>();

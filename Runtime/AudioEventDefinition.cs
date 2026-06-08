@@ -9,6 +9,7 @@ namespace BitemDev.AudioEngine
     {
         [SerializeField] private string eventId;
         [SerializeField] private AudioEventCategory category;
+        [SerializeField] private AudioEventBus bus = AudioEventBus.Auto;
         [SerializeField] private AudioEventPlaybackMode playbackMode;
         [SerializeField] private AudioEventSpatialMode spatialMode;
         [SerializeField] private AudioMixerGroup outputMixerGroup;
@@ -44,6 +45,7 @@ namespace BitemDev.AudioEngine
 
         public string EventId => eventId;
         public AudioEventCategory Category => category;
+        public AudioEventBus Bus => bus;
         public AudioEventPlaybackMode PlaybackMode => playbackMode;
         public AudioEventSpatialMode SpatialMode => spatialMode;
         public AudioMixerGroup OutputMixerGroup => outputMixerGroup;

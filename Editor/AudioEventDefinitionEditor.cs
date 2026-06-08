@@ -52,9 +52,13 @@ namespace BitemDev.AudioEngine.Editor
                 EditorGUILayout.HelpBox("Add at least one AudioClip before this event can play.", MessageType.Warning);
             }
 
-            if (definition.SpatialMode != AudioEventSpatialMode.TwoD && definition.OutputMixerGroup == null)
+            if (definition.Bus == AudioEventBus.Custom && definition.OutputMixerGroup == null)
             {
-                EditorGUILayout.HelpBox("3D events work without a mixer group, but routing them through an Audio Mixer is recommended.", MessageType.Info);
+                EditorGUILayout.HelpBox("Custom bus events need an Output Mixer Group because config bus routing only handles named buses.", MessageType.Warning);
+            }
+            else if (definition.OutputMixerGroup == null)
+            {
+                EditorGUILayout.HelpBox("This event will use its Bus. Assign AudioEngineConfig bus bindings to route SFX, Music, Dialogue, Ambience, and UI to separate mixer groups.", MessageType.Info);
             }
         }
 

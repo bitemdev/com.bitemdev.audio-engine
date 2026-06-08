@@ -12,6 +12,7 @@ The package supports both compact and production-scale projects:
 
 - Compact projects: the camera can be both the audio listener and the gameplay audio reference.
 - Production projects: the camera can be the listener while a dedicated gameplay transform drives audio logic such as proximity, ambience, combat intensity, or music state.
+- Unity version support: the package uses a conservative API baseline and is intended to compile in Unity 6000.0 and later 6000.x releases.
 
 ## Architecture Goals
 
@@ -22,6 +23,7 @@ The package is built around these rules:
 | Centralize playback | `AudioManager` owns pooled `AudioSource` voices, event lookup, playback, mixer parameters, snapshots, and stopping. |
 | Keep gameplay code clean | Gameplay code calls the manager with event ids instead of managing `AudioSource` components directly. |
 | Give designers control | `AudioEventDefinition` assets hold clips, routing, randomization, spatial settings, cooldowns, voice limits, and fades. |
+| Route by audio bus | Events choose a bus such as `Sfx`, `Music`, or `Dialogue`; `AudioEngineConfig` maps those buses to mixer groups. |
 | Support camera-based listening | `AudioReferenceRig` assigns/registers the listener camera and can ensure it has an `AudioListener`. |
 | Support separate gameplay audio logic | `AudioReferenceRig` has a separate `Logic Reference` field used by systems such as `AudioDistanceParameterDriver`. |
 | Support compact setups | Set `Reference Mode` to `CameraOnly` when the camera should drive both listening and audio logic. |
@@ -113,7 +115,7 @@ Purpose:
 - Handles cooldowns and max voice limits.
 - Applies mixer parameters and snapshots.
 
-There should normally be one `AudioManager` in the first scene or bootstrap scene.
+There should be one `AudioManager` in the project bootstrap path. Runtime duplicates are destroyed, and the GameObject creation menu selects the existing manager instead of creating another one.
 
 ### 3. Add The Audio Reference Rig
 
@@ -241,10 +243,11 @@ An `AudioEventDefinition` is one playable sound event. It can contain one clip o
 | Field | Purpose | Example |
 | --- | --- | --- |
 | `Event Id` | Stable id used by code and generated constants. | `sfx.player.jump` |
-| `Category` | Organizational label. Does not change playback by itself. | `Sfx`, `Music`, `Ambience`, `Dialogue`, `Ui` |
+| `Category` | Organizational label. Also drives `Bus: Auto` routing. | `Sfx`, `Music`, `Ambience`, `Dialogue`, `Ui` |
+| `Bus` | Mixer routing layer. `Auto` infers from playback mode/category. | `Sfx`, `Music`, `Dialogue` |
 | `Playback Mode` | How the event behaves. | `OneShot`, `Loop`, `Music` |
 | `Spatial Mode` | Whether the event is 2D or 3D. | UI = `TwoD`, explosion = `World3D` |
-| `Output Mixer Group` | Audio Mixer group for routing. | Master/SFX, Master/Music |
+| `Output Mixer Group` | Optional per-event routing override. Leave empty to use the event bus. | Special one-off mixer group |
 | `Clip Selection Mode` | How to pick clips from the list. | `Random` or `Sequential` |
 | `Clips` | AudioClip variations. | 5 footstep clips |
 
@@ -432,11 +435,11 @@ Event settings:
 ```text
 Event Id: music.combat
 Category: Music
+Bus: Auto
 Playback Mode: Music
 Spatial Mode: TwoD
 Fade In Seconds: 1
 Fade Out Seconds: 1
-Output Mixer Group: Music
 ```
 
 Programmer call:
@@ -479,6 +482,7 @@ Fields:
 | `Config` | Optional `AudioEngineConfig` asset. Recommended. |
 | `Event Library` | Library used for string/id lookup. Usually assigned from config. |
 | `Master Mixer` | Mixer used when setting parameters without a specific mixer. |
+| `Bus Bindings` | Optional local bus-to-mixer-group bindings. Usually assigned from config. |
 | `Reference Mode` | Camera-only or separate listener/logic reference. Usually assigned by config or rig. |
 | `Listener Transform` | Transform used as the listener reference. Usually camera. |
 | `Logic Reference Transform` | Transform used for gameplay audio logic. Usually player. |
@@ -620,7 +624,7 @@ If an event is not in the library, string/id playback will fail and log a warnin
 
 Purpose:
 
-Global configuration for the manager.
+Project-level audio policy for the central manager.
 
 Fields:
 
@@ -628,6 +632,7 @@ Fields:
 | --- | --- |
 | `Event Library` | Main library used by the manager. |
 | `Master Mixer` | Default mixer for parameter writes. |
+| `Bus Bindings` | Maps `Sfx`, `Music`, `Dialogue`, `Ambience`, `Ui`, and `Master` buses to `AudioMixerGroup` outputs. |
 | `Reference Mode` | Default reference mode. |
 | `Initial Pool Size` | Startup voice count. |
 | `Max Pool Size` | Maximum voice count. |
@@ -635,6 +640,14 @@ Fields:
 | `Dont Destroy On Load` | Keeps audio manager alive across scenes. |
 | `Use Main Camera Fallback` | Uses `Camera.main` if no listener is assigned. |
 | `Volume Bindings` | Named mixer volume controls for settings menus. |
+
+Routing order:
+
+1. If an event has `Output Mixer Group`, that group is used.
+2. Otherwise the event `Bus` is resolved.
+3. If `Bus` is `Auto`, music playback routes to `Music`; otherwise category maps to the matching bus.
+4. `AudioEngineConfig.Bus Bindings` provides the final `AudioMixerGroup`.
+5. If no mixer group is assigned, Unity plays the source without mixer routing.
 
 Volume binding example:
 
@@ -741,8 +754,11 @@ In Unity's Audio Mixer:
 
 1. Create the groups.
 2. Expose each group volume parameter.
-3. Assign groups to `AudioEventDefinition.Output Mixer Group`.
-4. Add volume bindings in `AudioEngineConfig`.
+3. Open `AudioEngineConfig`.
+4. Assign each mixer group in `Bus Bindings`.
+5. Add volume bindings in `AudioEngineConfig`.
+
+Use `AudioEventDefinition.Output Mixer Group` only for special one-off routing. Normal SFX, Music, Dialogue, Ambience, and UI events should use the event `Bus`.
 
 ## Validation Checklist
 
@@ -850,6 +866,7 @@ Included:
 - Followed loop playback.
 - Music replacement with fade-out.
 - Cooldowns and per-event max voices.
+- Bus-based mixer routing.
 - Mixer parameter setting.
 - Snapshot transitions.
 - Camera-only and separate listener/logic reference modes.

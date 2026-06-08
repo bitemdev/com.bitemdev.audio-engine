@@ -20,6 +20,18 @@ namespace BitemDev.AudioEngine
         Ui = 4
     }
 
+    public enum AudioEventBus
+    {
+        Auto = 0,
+        Sfx = 1,
+        Music = 2,
+        Ambience = 3,
+        Dialogue = 4,
+        Ui = 5,
+        Master = 6,
+        Custom = 7
+    }
+
     public enum AudioEventPlaybackMode
     {
         OneShot = 0,
@@ -93,5 +105,15 @@ namespace BitemDev.AudioEngine
         public AudioMixer Mixer => mixer;
         public string ExposedParameter => exposedParameter;
         public float DefaultLinearVolume => defaultLinearVolume;
+    }
+
+    [Serializable]
+    public sealed class AudioMixerBusBinding
+    {
+        [SerializeField] private AudioEventBus bus = AudioEventBus.Sfx;
+        [SerializeField] private AudioMixerGroup mixerGroup;
+
+        public AudioEventBus Bus => bus;
+        public AudioMixerGroup MixerGroup => mixerGroup;
     }
 }

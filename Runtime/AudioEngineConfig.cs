@@ -15,6 +15,7 @@ namespace BitemDev.AudioEngine
         [SerializeField] private bool allowPoolGrowth = true;
         [SerializeField] private bool dontDestroyOnLoad = true;
         [SerializeField] private bool useMainCameraFallback = true;
+        [SerializeField] private List<AudioMixerBusBinding> busBindings = new List<AudioMixerBusBinding>();
         [SerializeField] private List<AudioMixerVolumeBinding> volumeBindings = new List<AudioMixerVolumeBinding>();
 
         public AudioEventLibrary EventLibrary => eventLibrary;
@@ -23,8 +24,9 @@ namespace BitemDev.AudioEngine
         public int InitialPoolSize => Mathf.Max(1, initialPoolSize);
         public int MaxPoolSize => Mathf.Max(InitialPoolSize, maxPoolSize);
         public bool AllowPoolGrowth => allowPoolGrowth;
-        public bool DontDestroyOnLoad => dontDestroyOnLoad;
+        public new bool DontDestroyOnLoad => dontDestroyOnLoad;
         public bool UseMainCameraFallback => useMainCameraFallback;
+        public IReadOnlyList<AudioMixerBusBinding> BusBindings => busBindings;
         public IReadOnlyList<AudioMixerVolumeBinding> VolumeBindings => volumeBindings;
 
         private void OnValidate()

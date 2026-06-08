@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Audio;
 
 namespace BitemDev.AudioEngine
 {
@@ -53,6 +54,7 @@ namespace BitemDev.AudioEngine
         internal void Play(
             AudioEventDefinition definition,
             AudioClipEntry clipEntry,
+            AudioMixerGroup outputMixerGroup,
             Vector3 position,
             Transform target,
             float volumeScale,
@@ -81,7 +83,7 @@ namespace BitemDev.AudioEngine
 
             source.Stop();
             source.clip = clipEntry.Clip;
-            source.outputAudioMixerGroup = definition.OutputMixerGroup;
+            source.outputAudioMixerGroup = outputMixerGroup;
             source.loop = definition.IsLooping;
             source.priority = definition.Priority;
             source.ignoreListenerPause = definition.IgnoreListenerPause;

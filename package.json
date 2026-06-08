@@ -3,7 +3,7 @@
   "displayName": "BitemDev Audio Engine",
   "version": "1.0.0",
   "unity": "2021.3",
-  "description": "Centralized Unity audio middleware for designer-authored sound events, pooled playback, mixer routing, listener/reference configuration, ambience zones, and runtime audio parameters.",
+  "description": "Centralized Unity audio middleware for designer-authored sound events, pooled playback, bus-based mixer routing, listener/reference configuration, ambience zones, and runtime audio parameters. Compatible with Unity 6000.x.",
   "keywords": [
     "audio",
     "sound",
@@ -11,6 +11,12 @@
     "unity",
     "tools"
   ],
+  "dependencies": {
+    "com.unity.modules.audio": "1.0.0",
+    "com.unity.modules.physics": "1.0.0",
+    "com.unity.modules.physics2d": "1.0.0",
+    "com.unity.modules.imgui": "1.0.0"
+  },
   "author": {
     "name": "BitemDev"
   }
