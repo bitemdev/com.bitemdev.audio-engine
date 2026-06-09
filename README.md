@@ -284,6 +284,15 @@ Footstep 3 plays less often.
 | `Fade In Seconds` | Fades in when starting. | Music, ambience loops. |
 | `Fade Out Seconds` | Default fade when stopped/replaced. | Music, ambience loops. |
 
+### Stop Fields
+
+| Field | Purpose | Recommended Use |
+| --- | --- | --- |
+| `Stop Event` | Optional event to play when this event is explicitly stopped. | Loop tail, button release, music stop sting. |
+| `Stop Event Id` | Optional id lookup for the stop event when a direct asset reference is not convenient. | Generated/id-driven workflows. |
+
+Explicit stops use `Fade Out Seconds` by default. Use this for loops and music to avoid pops and clicks.
+
 ### 3D Fields
 
 Only matter when `Spatial Mode` is not `TwoD`.
@@ -499,6 +508,8 @@ AudioManager.Instance.Play("ui.click");
 AudioManager.Instance.PlayAt("sfx.explosion.large", position);
 AudioManager.Instance.PlayFollow("sfx.vehicle.engine-loop", transform);
 AudioManager.Instance.StopEvent("ambience.forest.loop");
+handle.Stop(); // Uses that event's Fade Out Seconds.
+handle.Stop(0.25f); // Overrides the fade for this stop.
 AudioManager.Instance.StopAll();
 AudioManager.Instance.SetConfiguredVolume("Master", 0.8f);
 ```
@@ -631,7 +642,7 @@ Fields:
 | Field | Purpose |
 | --- | --- |
 | `Event Library` | Main library used by the manager. |
-| `Master Mixer` | Default mixer for parameter writes. |
+| `Master Mixer` | Default mixer for parameter writes and bus-name routing fallback. |
 | `Bus Bindings` | Maps `Sfx`, `Music`, `Dialogue`, `Ambience`, `Ui`, and `Master` buses to `AudioMixerGroup` outputs. |
 | `Reference Mode` | Default reference mode. |
 | `Initial Pool Size` | Startup voice count. |
@@ -646,8 +657,9 @@ Routing order:
 1. If an event has `Output Mixer Group`, that group is used.
 2. Otherwise the event `Bus` is resolved.
 3. If `Bus` is `Auto`, music playback routes to `Music`; otherwise category maps to the matching bus.
-4. `AudioEngineConfig.Bus Bindings` provides the final `AudioMixerGroup`.
-5. If no mixer group is assigned, Unity plays the source without mixer routing.
+4. `AudioEngineConfig.Bus Bindings` provides the final `AudioMixerGroup` when assigned.
+5. If no binding is assigned, the manager searches the `Master Mixer` for a group named after the bus, such as `Sfx`/`SFX`, `Music`, `Ambience`, `Dialogue`, `Ui`/`UI`, or `Master`.
+6. If no mixer group is found, Unity plays the source without mixer routing and the manager logs a warning once for that bus.
 
 Volume binding example:
 

@@ -77,6 +77,24 @@ namespace BitemDev.AudioEngine
         public float Weight => weight;
         public float Volume => volume;
         public float Pitch => pitch;
+
+        internal void EnsurePlayableDefaults()
+        {
+            if (weight <= 0f)
+            {
+                weight = 1f;
+            }
+
+            if (volume <= 0f)
+            {
+                volume = 1f;
+            }
+
+            if (pitch <= 0f)
+            {
+                pitch = 1f;
+            }
+        }
     }
 
     [Serializable]

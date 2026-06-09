@@ -27,6 +27,10 @@ namespace BitemDev.AudioEngine
         [SerializeField, Min(0f)] private float fadeInSeconds;
         [SerializeField, Min(0f)] private float fadeOutSeconds = 0.1f;
 
+        [Header("Stop")]
+        [SerializeField] private AudioEventDefinition stopEvent;
+        [SerializeField] private string stopEventId;
+
         [Header("3D")]
         [SerializeField, Range(0f, 1f)] private float spatialBlend = 1f;
         [SerializeField, Min(0f)] private float minDistance = 1f;
@@ -60,6 +64,8 @@ namespace BitemDev.AudioEngine
         public float Delay => delay;
         public float FadeInSeconds => fadeInSeconds;
         public float FadeOutSeconds => fadeOutSeconds;
+        public AudioEventDefinition StopEvent => stopEvent;
+        public string StopEventId => stopEventId;
         public float SpatialBlend => spatialBlend;
         public float MinDistance => minDistance;
         public float MaxDistance => Mathf.Max(minDistance, maxDistance);
@@ -84,6 +90,26 @@ namespace BitemDev.AudioEngine
             if (maxDistance < minDistance)
             {
                 maxDistance = minDistance;
+            }
+
+            if (volume <= 0f)
+            {
+                volume = 1f;
+            }
+
+            if (pitch <= 0f)
+            {
+                pitch = 1f;
+            }
+
+            if (clips == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < clips.Count; i++)
+            {
+                clips[i]?.EnsurePlayableDefaults();
             }
         }
 

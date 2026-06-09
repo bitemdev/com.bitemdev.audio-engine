@@ -58,7 +58,12 @@ namespace BitemDev.AudioEngine.Editor
             }
             else if (definition.OutputMixerGroup == null)
             {
-                EditorGUILayout.HelpBox("This event will use its Bus. Assign AudioEngineConfig bus bindings to route SFX, Music, Dialogue, Ambience, and UI to separate mixer groups.", MessageType.Info);
+                EditorGUILayout.HelpBox("This event will use its Bus. Routing works through AudioEngineConfig bus bindings first, then by finding a matching group name in the Master Mixer.", MessageType.Info);
+            }
+
+            if (definition.StopEvent == definition)
+            {
+                EditorGUILayout.HelpBox("Stop Event points back to this event. This is allowed, but usually a short stop/tail event is clearer.", MessageType.Warning);
             }
         }
 
@@ -79,6 +84,11 @@ namespace BitemDev.AudioEngine.Editor
                 {
                     EditorGUIUtility.systemCopyBuffer = $"AudioManager.Instance.Play(\"{definition.EventId}\");";
                 }
+
+                if (GUILayout.Button("Copy Stop Code"))
+                {
+                    EditorGUIUtility.systemCopyBuffer = $"AudioManager.Instance.StopEvent(\"{definition.EventId}\");";
+                }
             }
 
             using (new EditorGUILayout.HorizontalScope())
@@ -93,6 +103,11 @@ namespace BitemDev.AudioEngine.Editor
                     if (GUILayout.Button("Stop All"))
                     {
                         AudioManager.Instance.StopAll();
+                    }
+
+                    if (GUILayout.Button("Stop Event"))
+                    {
+                        AudioManager.Instance.StopEvent(definition);
                     }
                 }
             }

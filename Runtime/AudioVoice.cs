@@ -20,6 +20,7 @@ namespace BitemDev.AudioEngine
         internal float StartedAt { get; private set; }
         internal AudioEventDefinition CurrentEvent => currentEvent;
         internal bool IsReserved => reserved;
+        internal Vector3 CurrentPosition => transform.position;
 
         internal bool IsFinished
         {

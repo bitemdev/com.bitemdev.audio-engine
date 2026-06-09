@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
@@ -24,6 +25,7 @@ namespace BitemDev.AudioEngine
         private readonly List<AudioVoice> voices = new List<AudioVoice>();
         private readonly Dictionary<string, float> nextAllowedPlayTimes = new Dictionary<string, float>();
         private readonly Dictionary<string, int> sequenceIndices = new Dictionary<string, int>();
+        private readonly HashSet<AudioEventBus> missingBusBindingWarnings = new HashSet<AudioEventBus>();
         private int nextVoiceId = 1;
         private AudioVoice currentMusicVoice;
 
@@ -88,6 +90,7 @@ namespace BitemDev.AudioEngine
             eventLibrary = config.EventLibrary;
             masterMixer = config.MasterMixer;
             busBindings.Clear();
+            missingBusBindingWarnings.Clear();
             IReadOnlyList<AudioMixerBusBinding> configuredBusBindings = config.BusBindings;
             for (int i = 0; i < configuredBusBindings.Count; i++)
             {
@@ -177,7 +180,8 @@ namespace BitemDev.AudioEngine
 
             if (definition.PlaybackMode == AudioEventPlaybackMode.Music && currentMusicVoice != null && currentMusicVoice != voice)
             {
-                currentMusicVoice.Stop(definition.FadeOutSeconds);
+                AudioEventDefinition currentMusicEvent = currentMusicVoice.CurrentEvent;
+                StopVoice(currentMusicVoice, currentMusicEvent, ResolveFadeOut(currentMusicEvent, -1f), true);
             }
 
             Vector3 position = ResolvePlaybackPosition(definition, request);
@@ -195,27 +199,58 @@ namespace BitemDev.AudioEngine
 
         public void StopAll(float fadeOutSeconds = 0f)
         {
-            for (int i = 0; i < voices.Count; i++)
+            StopAll(fadeOutSeconds, false);
+        }
+
+        public void StopAll(float fadeOutSeconds, bool triggerStopEvents)
+        {
+            int voiceCount = voices.Count;
+            for (int i = 0; i < voiceCount; i++)
             {
-                voices[i].Stop(fadeOutSeconds);
+                AudioVoice voice = voices[i];
+                StopVoice(voice, voice.CurrentEvent, fadeOutSeconds, triggerStopEvents);
             }
 
             currentMusicVoice = null;
         }
 
-        public void StopEvent(string eventId, float fadeOutSeconds = -1f)
+        public void StopEvent(AudioEventDefinition definition, float fadeOutSeconds = -1f, bool triggerStopEvent = true)
+        {
+            if (definition == null)
+            {
+                return;
+            }
+
+            StopMatchingVoices(definition, definition.EventId, fadeOutSeconds, triggerStopEvent);
+        }
+
+        public void StopEvent(string eventId, float fadeOutSeconds = -1f, bool triggerStopEvent = true)
         {
             if (string.IsNullOrWhiteSpace(eventId))
             {
                 return;
             }
 
-            for (int i = 0; i < voices.Count; i++)
+            StopMatchingVoices(null, eventId, fadeOutSeconds, triggerStopEvent);
+        }
+
+        private void StopMatchingVoices(AudioEventDefinition targetDefinition, string eventId, float fadeOutSeconds, bool triggerStopEvent)
+        {
+            int voiceCount = voices.Count;
+            for (int i = 0; i < voiceCount; i++)
             {
                 AudioVoice voice = voices[i];
-                if (voice.IsReserved && voice.CurrentEvent != null && voice.CurrentEvent.EventId == eventId)
+                if (!voice.IsReserved || voice.CurrentEvent == null)
                 {
-                    voice.Stop(ResolveFadeOut(voice.CurrentEvent, fadeOutSeconds));
+                    continue;
+                }
+
+                bool matchesDefinition = targetDefinition != null && voice.CurrentEvent == targetDefinition;
+                bool matchesEventId = !string.IsNullOrWhiteSpace(eventId) && voice.CurrentEvent.EventId == eventId;
+                if (matchesDefinition || matchesEventId)
+                {
+                    AudioEventDefinition definition = voice.CurrentEvent;
+                    StopVoice(voice, definition, ResolveFadeOut(definition, fadeOutSeconds), triggerStopEvent);
                 }
             }
         }
@@ -315,7 +350,8 @@ namespace BitemDev.AudioEngine
                 return;
             }
 
-            voice.Stop(ResolveFadeOut(voice.CurrentEvent, fadeOutSeconds));
+            AudioEventDefinition definition = voice.CurrentEvent;
+            StopVoice(voice, definition, ResolveFadeOut(definition, fadeOutSeconds), true);
             if (voice == currentMusicVoice)
             {
                 currentMusicVoice = null;
@@ -485,7 +521,127 @@ namespace BitemDev.AudioEngine
                 return definition.OutputMixerGroup;
             }
 
-            return GetConfiguredBusMixerGroup(ResolveBus(definition));
+            AudioEventBus bus = ResolveBus(definition);
+            AudioMixerGroup mixerGroup = GetConfiguredBusMixerGroup(bus);
+            if (mixerGroup != null)
+            {
+                return mixerGroup;
+            }
+
+            mixerGroup = FindMixerGroupByBusName(bus);
+            if (mixerGroup != null)
+            {
+                return mixerGroup;
+            }
+
+            WarnMissingBusBinding(definition, bus);
+            return null;
+        }
+
+        private AudioMixerGroup FindMixerGroupByBusName(AudioEventBus bus)
+        {
+            if (masterMixer == null || bus == AudioEventBus.Auto || bus == AudioEventBus.Custom)
+            {
+                return null;
+            }
+
+            AudioMixerGroup[] matches = masterMixer.FindMatchingGroups(bus.ToString());
+            AudioMixerGroup exactMatch = FindBestMixerGroupMatch(matches, bus);
+            if (exactMatch != null)
+            {
+                return exactMatch;
+            }
+
+            if (bus == AudioEventBus.Sfx)
+            {
+                matches = masterMixer.FindMatchingGroups("SFX");
+                exactMatch = FindBestMixerGroupMatch(matches, bus);
+                if (exactMatch != null)
+                {
+                    return exactMatch;
+                }
+            }
+
+            if (bus == AudioEventBus.Ui)
+            {
+                matches = masterMixer.FindMatchingGroups("UI");
+                exactMatch = FindBestMixerGroupMatch(matches, bus);
+                if (exactMatch != null)
+                {
+                    return exactMatch;
+                }
+            }
+
+            return null;
+        }
+
+        private static AudioMixerGroup FindBestMixerGroupMatch(AudioMixerGroup[] matches, AudioEventBus bus)
+        {
+            if (matches == null || matches.Length == 0)
+            {
+                return null;
+            }
+
+            string busName = NormalizeMixerGroupName(bus.ToString());
+            for (int i = 0; i < matches.Length; i++)
+            {
+                AudioMixerGroup match = matches[i];
+                if (match != null && NormalizeMixerGroupName(match.name) == busName)
+                {
+                    return match;
+                }
+            }
+
+            if (bus == AudioEventBus.Sfx)
+            {
+                for (int i = 0; i < matches.Length; i++)
+                {
+                    AudioMixerGroup match = matches[i];
+                    if (match != null && string.Equals(NormalizeMixerGroupName(match.name), "sfx", StringComparison.Ordinal))
+                    {
+                        return match;
+                    }
+                }
+            }
+
+            if (bus == AudioEventBus.Ui)
+            {
+                for (int i = 0; i < matches.Length; i++)
+                {
+                    AudioMixerGroup match = matches[i];
+                    if (match != null && string.Equals(NormalizeMixerGroupName(match.name), "ui", StringComparison.Ordinal))
+                    {
+                        return match;
+                    }
+                }
+            }
+
+            return matches[0];
+        }
+
+        private static string NormalizeMixerGroupName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            return value.Replace(" ", string.Empty)
+                .Replace("_", string.Empty)
+                .Replace("-", string.Empty)
+                .ToLowerInvariant();
+        }
+
+        private void WarnMissingBusBinding(AudioEventDefinition definition, AudioEventBus bus)
+        {
+            if (bus == AudioEventBus.Auto || bus == AudioEventBus.Custom || !missingBusBindingWarnings.Add(bus))
+            {
+                return;
+            }
+
+            Debug.LogWarning(
+                $"Audio event '{definition.EventId}' resolved to bus '{bus}', but no mixer group was found. Assign an Output Mixer Group, add an AudioEngineConfig bus binding, or name a group '{bus}' in the Master Mixer.",
+                this);
         }
 
         private static AudioEventBus ResolveBus(AudioEventDefinition definition)
@@ -562,6 +718,42 @@ namespace BitemDev.AudioEngine
             }
 
             return null;
+        }
+
+        private void StopVoice(AudioVoice voice, AudioEventDefinition definition, float fadeOutSeconds, bool triggerStopEvent)
+        {
+            if (voice == null || !voice.IsReserved)
+            {
+                return;
+            }
+
+            Vector3 stopPosition = voice.CurrentPosition;
+            voice.Stop(fadeOutSeconds);
+
+            if (triggerStopEvent)
+            {
+                PlayStopEvent(definition, stopPosition);
+            }
+        }
+
+        private void PlayStopEvent(AudioEventDefinition stoppedEvent, Vector3 position)
+        {
+            if (stoppedEvent == null)
+            {
+                return;
+            }
+
+            AudioEventDefinition stopDefinition = stoppedEvent.StopEvent;
+            if (stopDefinition != null)
+            {
+                Play(AudioPlaybackRequest.ForEvent(stopDefinition).At(position));
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(stoppedEvent.StopEventId))
+            {
+                Play(AudioPlaybackRequest.ForEventId(stoppedEvent.StopEventId).At(position));
+            }
         }
 
         private void ApplyDefaultVolumeBindings()

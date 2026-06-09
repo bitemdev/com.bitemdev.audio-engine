@@ -63,5 +63,10 @@ namespace BitemDev.AudioEngine
         {
             activeHandle.Stop();
         }
+
+        public void Stop(float fadeOutSeconds)
+        {
+            activeHandle.Stop(fadeOutSeconds);
+        }
     }
 }
